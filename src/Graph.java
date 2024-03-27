@@ -22,6 +22,7 @@ public class Graph {
         }
         return vert;
     }
+
     public void addEdge(String from, String to, int weight) {
         Vertex v1 = getVertex(from);
         Vertex v2 = getVertex(to);
@@ -36,18 +37,20 @@ public class Graph {
         Edge edge = null;
         Vertex v1 = getVertex(from);
         Vertex v2 = getVertex(to);
-
-        for (Edge e : v1.adjlist) {
-            if (e.to == v2) {
-                edge = e;
-                break;
+        try {
+            for (Edge e : v1.adjlist) {
+                if (e.to == v2) {
+                    edge = e;
+                    break;
+                }
             }
+        } catch (NullPointerException e) {
+            System.out.println("hello world");
         }
 	    return edge;
     }
     
     public int MSTCost() {
-        // code below ought to return the MST cost
         Graph mst = this.MST();
         if (mst == null || vlist.size() < 2) return 0;
 
@@ -57,19 +60,41 @@ public class Graph {
                 cost += e.weight;
             }
         }
+        cost /= 2;
+	    return cost;
+    }
 
-	    return cost/2;
+    private boolean isVertex(String name) {
+        for (Vertex v : vlist) {
+            if (v.name.equalsIgnoreCase(name)) return true;
+        }
+        return false;
+    }
+
+    private int checkVertex(ArrayList<Set<Vertex>> verts, String name) {
+        for (Set<Vertex> vs : verts) {
+            for (Vertex v : vs) {
+                if (v.name.equalsIgnoreCase(name)) return verts.indexOf(vs);
+            }
+        }
+        return -1;
     }
 
     public Graph MST() {
-        // code below ought to return the MST graph, or whatever it said here
-        if (vlist.size() == 0) return null;
+        Graph mst = new Graph();
+        if (vlist.size() == 0) return mst;
+        if (vlist.size() == 1) {
+            mst.addVertex(vlist.get(0).name);
+            return mst;
+        }
 
-        Graph graphMST = new Graph();
         ArrayList<Edge> edges = new ArrayList<>();
-        Set<Vertex> visitedNodes = new HashSet<>();
+        ArrayList<Set<Vertex>> visitedNodes = new ArrayList<>();
 
         vlist.forEach(v -> {
+            Set<Vertex> node = new HashSet<>();
+            node.add(v);
+            visitedNodes.add(node);
             edges.addAll(v.adjlist);
         });
 
@@ -78,30 +103,93 @@ public class Graph {
         edges.forEach(e -> {
             Vertex from = e.from;
             Vertex to = e.to;
-
-            // Check if these specific vertices have been added yet
-            if (!visitedNodes.contains(to)) {
-                // Add the vertices to the MST
-                if (!graphMST.vlist.contains(from)) {
-                    graphMST.addVertex(from.name);
+            int idxFrom = checkVertex(visitedNodes, from.name);
+            int idxTo = checkVertex(visitedNodes, to.name);
+            if (idxFrom != idxTo) {
+                if (!mst.isVertex(from.name)) {
+                    mst.addVertex(from.name);
                 }
-                graphMST.addVertex(to.name);
-                graphMST.addEdge(from.name, to.name, e.weight);
+                if (!mst.isVertex(to.name)) {
+                    mst.addVertex(to.name);
+                }
+                mst.addEdge(from.name, to.name, e.weight);
 
-                // Mark both vertices as visited
-                visitedNodes.add(from);
-                visitedNodes.add(to);
+                // join visited sets
+                visitedNodes.get(idxFrom).addAll(visitedNodes.get(idxTo));
+                visitedNodes.remove(idxTo);
             }
         });
 
-        return graphMST;
+        return mst;
     }
 
     public int SPCost(String from, String to) {
-	return 0;
+        Graph spGraph = SP(from, to);
+        int cost = 0;
+        for (Vertex v : spGraph.vlist) {
+            for (Edge e : v.adjlist) {
+                cost += e.weight;
+            }
+        }
+
+        return cost/2;
     }
 
     public Graph SP(String from, String to) {
-	return null;
+        if (vlist.size() == 1) {
+            Graph g = new Graph();
+            g.addVertex(vlist.get(0).name);
+            return g;
+        }
+        Graph shortP = new Graph();
+        PriorityQueue<Vertex> pq = new PriorityQueue<>((v1, v2) -> Integer.compare(v1.dist, v2.dist));
+        Vertex origin = getVertex(from);
+
+        vlist.forEach(v -> {
+            if (v.name.equalsIgnoreCase(from)) {
+                v.dist = 0;
+            }
+            pq.add(v);
+        });
+
+        while (!pq.isEmpty()){
+            Vertex v = pq.poll();
+            if (v.name.equalsIgnoreCase(to)) {
+                Vertex current = v;
+                while (current.prev != null) {
+                    Vertex prev = current.prev;
+                    if (!shortP.isVertex(current.name)) {
+                        shortP.addVertex(current.name);
+                    }
+                    if (!shortP.isVertex(prev.name)) {
+                        shortP.addVertex(prev.name);
+                    }
+                    Edge ed = getEdge(prev.name, current.name);
+                    shortP.addEdge(prev.name, current.name, ed.weight);
+
+                    current = prev;
+                }
+                return shortP;
+            }
+
+            for (Edge e : v.adjlist) {
+                Vertex vert = e.to;
+                if (!pq.contains(vert)) continue;
+                int altD = 0;
+                altD = e.weight + e.from.dist;
+
+                if (altD < vert.dist) {
+                    vert.dist = altD;
+                    vert.prev = v;
+                    pq.remove(vert);
+                    pq.add(vert);
+                }
+            }
+        }
+
+	    return shortP;
     }
+
 }
+
+
